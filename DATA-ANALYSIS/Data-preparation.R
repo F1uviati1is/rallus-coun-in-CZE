@@ -16,7 +16,7 @@ dta_railCounts <- org_railPerPoint
 tmp_cols <- c("rakos", "orobinec", "zblochan", "ostrice", "dreviny", "ostatni")
 
 ## DATA EDITING ####
-# This following awefully long data managing is, selecting right methodology, cutting usefull columns, computing Shanon index, creating Termin variable, computing usage of number of rails for the likelihood
+# This following awefully long data managing is, selecting right methodology, cutting useless columns, computing Shanon index, creating Termin variable, computing usage of number of rails for the likelihood
 dta_railCounts <- dta_railCounts |>
   dplyr::filter(Metoda %in% c("bodový transekt - intenzivní", "AKU - intenzivní")) |>  # Counting only specific methods
   dplyr::select(Name, Oblast, X1_termin, X2_termin, X3_termin, zarust, ostatni, rakos, orobinec, zblochan, ostrice, dreviny, Celkem)|> # Using only needed columns
