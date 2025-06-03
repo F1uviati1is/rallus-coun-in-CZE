@@ -5,7 +5,7 @@ The bigger scope is to present standardize technique for updating counts of any 
 
 ## Content
 
-- [ ] Structured Data counts per point of water rail in Czechia.
+- [x] Structured Data counts per point of water rail in Czechia.
 - [ ] Script investigating the relationship of rail to environment.
 - [ ] Script modelling the numbers of rail based on.
 - [ ] Description of reusing presented approach for other species data.
