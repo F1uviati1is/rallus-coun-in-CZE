@@ -154,3 +154,10 @@ model {
   }
 }
 "
+
+### SAVING DATA ####
+
+saveRDS(fin_dataStan, file = "DATA-ANALYSIS/data/res_dataStan.rds")
+writeLines(fin_model0, con = "DATA-ANALYSIS/data/res_model0.stan")
+writeLines(fin_model_text1, con = "DATA-ANALYSIS/data/res_model1.stan")
+
