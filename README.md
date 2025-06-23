@@ -37,6 +37,5 @@ To address this, we adopt the principles outlined by [(Konkol et al. 2025)](http
 and employ a Bayesian approach, which allows for adaptable, comparable results and
 supports a reproducible system linking species occurrence data to abundance estimates.
 
-## Ivanův názor
 
 
