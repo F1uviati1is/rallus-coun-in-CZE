@@ -6,8 +6,10 @@ The bigger scope is to present standardize technique for updating counts of any 
 ## Content
 
 - [x] Structured Data counts per point of water rail in Czechia.
+- [x] Script of data preparation.
 - [ ] Script investigating the relationship of rail to environment.
-- [ ] Script modelling the numbers of rail based on.
+- [x] Script modelling the numbers of rail based on predictosr found in previous one.
+- [ ] Model diagnostics and interpretation
 - [ ] Description of reusing presented approach for other species data.
 
 ## Object naming convention
@@ -20,6 +22,7 @@ So far i defined folowing marks within scripts:
 * dta = data
 * fin = final object, usualy ment to be export at the end)
 * tmp = temporary or assistant data object
+* mod = model
 
 Feel free to define any other category.
 
