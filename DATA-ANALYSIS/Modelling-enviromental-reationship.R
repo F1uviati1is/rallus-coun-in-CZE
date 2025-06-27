@@ -9,12 +9,21 @@ library(glmmTMB)
 library(interactions)
 library(vegan)
 library(dplyr)
+library(sf)
 
 
 attach (RA_PROSTREDI_kopie_2)
 summary (RA_PROSTREDI_kopie_2)
 
-chrastal_data <- openxlsx::read.xlsx("data/chrast_data.xlsx")
+##############################################################################################
+# 
+#             JE TŘEBA NAHRÁT DATA A PAK TO SNAD POBĚŽÍ
+#
+##############################################################################################
+# chrastal_data <- st_read("DATA-ANALYSIS/data/body_chrastal.shp", options = "ENCODING=UTF-8") 
+
+
+
 
 
 model<-(glmmTMB(RA_Celkem~pocet+(1|Oblast),RA_PROSTREDI_kopie_2,family=nbinom1))
