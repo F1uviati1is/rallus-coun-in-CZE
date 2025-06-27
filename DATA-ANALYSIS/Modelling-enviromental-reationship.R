@@ -9,15 +9,19 @@ library(glmmTMB)
 library(interactions)
 library(vegan)
 library(dplyr)
+library(ggplot2)
 
 
 attach (RA_PROSTREDI_kopie_2)
 summary (RA_PROSTREDI_kopie_2)
 
-chrastal_data <- openxlsx::read.xlsx("data/chrast_data.xlsx")
+chrastal_data <- openxlsx::read.xlsx(
+  "DATA-ANALYSIS/data/dta_chrastal.xlsx",
+  sheet = 2
+  )
 
 
-model<-(glmmTMB(RA_Celkem~pocet+(1|Oblast),RA_PROSTREDI_kopie_2,family=nbinom1))
+model<-(glmmTMB::glmmTMB(RA_Celkem~pocet+(1|Oblast),RA_PROSTREDI_kopie_2,family=nbinom1))
 summary(model) #druha hypotéza - jestli je zde vliv prostředí na toho chřástala 
 plot(RA_Celkem, pocet, pch = 16, cex = 1,abline (lm(RA_Celkem~pocet)), col = "blue", main = "Početnost chřástala v rámci počtu různých typů stanovišť", xlab = "Počet chřástalů", ylab = "počet stanovišť") #grafickéznázornění
 check_overdispersion (model)
@@ -44,12 +48,47 @@ r.squaredGLMM(model) #kolik procent variability mi ukazuj ty data
 
 detach(RA_PROSTREDI_kopie_2)
 
-chrastal_data <- openxlsx::read.xlsx("S:/Složky uživatelů/Gaigr/chrast_data.xlsx") %>%
-  rename(pocet_celkem = `RA-Celkem`) %>%
-  mutate(shannon = diversity(dplyr::select(., rakos, orobinec, zblochan, ostrice, dreviny, ostatni), index = "shannon"),
-         shannon_perc = diversity(dplyr::select(., 'rakos%', 'orobinec%', 'zblochan%', 'ostrice%', 'dreviny%', 'ostatni%'), index = "shannon"))
+chrastal_data <- openxlsx::read.xlsx(
+  "DATA-ANALYSIS/data/dta_chrastal.xlsx",
+  sheet = 2
+  ) %>%
+  dplyr::rename(
+    pocet_celkem = `RA-Celkem`
+    ) %>%
+  dplyr::mutate(
+    shannon = vegan::diversity(
+      dplyr::select(
+        ., 
+        rakos, 
+        orobinec, 
+        zblochan, 
+        ostrice, 
+        dreviny, 
+        ostatni
+        ), 
+      index = "shannon"
+      ),
+    shannon_perc = vegan::diversity(
+      dplyr::select(
+        .,
+        'rakos%',
+        'orobinec%',
+        'zblochan%',
+        'ostrice%',
+        'dreviny%',
+        'ostatni%'
+        ),
+      index = "shannon"
+      )
+    )
 
-model<-(glmmTMB(pocet_celkem~X19+(1|Oblast),chrastal_data,family=nbinom1))
+model <-
+  glmmTMB(
+    pocet_celkem ~ X19 + (1 | Oblast), 
+    chrastal_data,
+    family = nbinom2
+    )
+
 summary(model) #druha hypotéza - jestli je zde vliv prostředí na toho chřástala 
 model1<-(glmmTMB(pocet_celkem~shannon+(1|Oblast),chrastal_data,family=nbinom1))
 summary(model1) #druha hypotéza - jestli je zde vliv prostředí na toho chřástala 
@@ -63,7 +102,14 @@ chrast_sum <- chrastal_data %>%
                    pocet_biotopu = mean(X19, na.rm = TRUE),
                    shannon = mean(shannon, na.rm = TRUE)) %>%
   dplyr::ungroup()
-ggplot(data = chrast_sum, aes(x = pocet_biotopu, y = pocet_celkem, size = pocet_pozorovani)) +
+
+ggplot(
+  data = chrast_sum, 
+  aes(
+    x = pocet_biotopu, 
+    y = pocet_celkem, 
+    size = pocet_pozorovani)
+  ) +
   geom_point() +
   geom_smooth(method = "lm") +
   xlab("\nprůměrný počet biotopů na lokalitě") +
