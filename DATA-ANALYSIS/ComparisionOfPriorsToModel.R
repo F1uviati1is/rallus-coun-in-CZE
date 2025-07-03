@@ -154,10 +154,11 @@ ggplot(dta_posteriorLong, aes(x = alpha, fill = scenario)) +
              linetype = "dashed", linewidth = 1) +
   geom_text(
     data = dta_means,
-    aes(x = mean_alpha, y = y_position, label = label, color = scenario),
+    aes(x = mean_alpha, y = y_position, label = label),
     angle = 90,
     hjust = -0.1,
     size = 3.5,
+    color = "black",     # <-- make text labels black
     show.legend = FALSE
   ) +
   labs(
@@ -166,4 +167,12 @@ ggplot(dta_posteriorLong, aes(x = alpha, fill = scenario)) +
     y = "Density"
   ) +
   coord_cartesian(xlim = c(0, 25000), ylim = c(0, 3e-04)) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    text = element_text(color = "black"),           # Axis + title text
+    axis.title = element_text(color = "black"),
+    axis.text = element_text(color = "black"),
+    legend.text = element_text(color = "black"),
+    legend.title = element_text(color = "black"),
+    plot.title = element_text(color = "black")
+  )
