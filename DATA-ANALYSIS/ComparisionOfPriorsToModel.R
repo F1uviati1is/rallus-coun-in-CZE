@@ -1,4 +1,4 @@
-# Script for testing different model parameter settings
+# Script for testing different model parameter settings (UPDATED)
 
 # SETUP ####
 library(ggplot2)
@@ -11,19 +11,20 @@ library(dplyr)
 # DATA ####
 dta_dataForStanModel <- readRDS("DATA-ANALYSIS/data/res_dataStan.rds")
 
-# FUNCTION: Generate model code with parameterized priors ####
-fce_generateModelCode <- function(alpha_mean, alpha_sd, 
-                                  beta_div_mean, beta_div_sd,
-                                  beta_qual_sd,
-                                  phi_meanlog, phi_sdlog) {
+# FUNCTION TO GENERATE STAN CODE ####
+fce_generateModelCode <- function(
+    alpha_mean, alpha_sd, 
+    beta_div_mean, beta_div_sd,
+    beta_qual_mean = 0, beta_qual_sd,
+    sigma_area_sd = 2,
+    phi_meanlog, phi_sdlog
+) {
   glue('
 data {{
   int<lower=1> N;
   int<lower=1> J_area;
-  int<lower=1> T_time;
   int<lower=0> y[N];
   int<lower=1, upper=J_area> area[N];
-  int<lower=1, upper=T_time> time[N];
   vector[N] environment_diversity;
   vector[N] environment_quality;
 }}
@@ -33,20 +34,16 @@ parameters {{
   real<lower=0> beta_diversity;
   real beta_quality;
   vector[J_area] u_area;
-  vector[T_time] u_time;
   real<lower=0> sigma_area;
-  real<lower=0> sigma_time;
   real<lower=0> phi;
 }}
 
 model {{
   alpha ~ lognormal({alpha_mean}, {alpha_sd});
   beta_diversity ~ lognormal({beta_div_mean}, {beta_div_sd});
-  beta_quality ~ normal(0, {beta_qual_sd});
+  beta_quality ~ normal({beta_qual_mean}, {beta_qual_sd});
   u_area ~ normal(0, sigma_area);
-  u_time ~ normal(0, sigma_time);
-  sigma_area ~ normal(0, 2);
-  sigma_time ~ normal(0, 2);
+  sigma_area ~ normal(0, {sigma_area_sd});
   phi ~ lognormal({phi_meanlog}, {phi_sdlog});
 
   for (n in 1:N) {{
@@ -54,8 +51,7 @@ model {{
       log(alpha) +
       beta_diversity * environment_diversity[n] +
       beta_quality * environment_quality[n] +
-      u_area[area[n]] +
-      u_time[time[n]],
+      u_area[area[n]],
       phi
     );
   }}
@@ -63,31 +59,54 @@ model {{
 ')
 }
 
-# LIST OF PRIOR SCENARIOS ####
+# PRIOR SCENARIOS ####
 dta_priorScenarios <- list(
-  list(name = "default",
-       alpha_mean = -5.986,
-       alpha_sd = 3,
-       beta_div_mean = 0,
-       beta_div_sd = 2,
-       beta_qual_sd = 2,
-       phi_meanlog = log(1.62),
-       phi_sdlog = 0.5),
-  
-  list(name = "weaker_alpha",
-       alpha_mean = -3,
-       alpha_sd = 1,
-       beta_div_mean = 0,
-       beta_div_sd = 2,
-       beta_qual_sd = 2,
-       phi_meanlog = log(1.62),
-       phi_sdlog = 0.5)
+  list(
+    name = "infAlpha_weakOthers",
+    alpha_mean = -1.3,
+    alpha_sd = 0.5,
+    beta_div_mean = 0,
+    beta_div_sd = 4,
+    beta_qual_sd = 4,
+    phi_meanlog = log(1.62),
+    phi_sdlog = 1
+  ),
+  list(
+    name = "flatEverything",
+    alpha_mean = -1,
+    alpha_sd = 5,
+    beta_div_mean = 0,
+    beta_div_sd = 5,
+    beta_qual_sd = 5,
+    phi_meanlog = log(1.62),
+    phi_sdlog = 1.5
+  ),
+  list(
+    name = "tightAll",
+    alpha_mean = -1.3,
+    alpha_sd = 0.3,
+    beta_div_mean = 0.5,
+    beta_div_sd = 0.5,
+    beta_qual_sd = 0.5,
+    phi_meanlog = log(1.62),
+    phi_sdlog = 0.2
+  ),
+  list(
+    name = "shrinkCovariates",
+    alpha_mean = -1.3,
+    alpha_sd = 1,
+    beta_div_mean = 0,
+    beta_div_sd = 0.3,
+    beta_qual_sd = 0.3,
+    phi_meanlog = log(1.62),
+    phi_sdlog = 0.5
+  )
 )
 
-# STORAGE FOR RESULTS ####
+# RESULTS CONTAINER ####
 fin_results <- list()
 
-# MODELLING ####
+# MODEL FITTING ####
 for (scenario in dta_priorScenarios) {
   cat("Running:", scenario$name, "\n")
   
@@ -101,6 +120,7 @@ for (scenario in dta_priorScenarios) {
     phi_sdlog = scenario$phi_sdlog
   )
   
+  set.seed(22)
   tmp_mod <- stan_model(model_code = tmp_code)
   
   set.seed(23)
@@ -110,7 +130,6 @@ for (scenario in dta_priorScenarios) {
 }
 
 # VISUALIZATION ####
-# Extract and combine alpha samples from each scenario
 alpha_samples_list <- lapply(names(fin_results), function(scenario_name) {
   alpha_samples <- rstan::extract(fin_results[[scenario_name]])$alpha
   tibble(
@@ -121,16 +140,14 @@ alpha_samples_list <- lapply(names(fin_results), function(scenario_name) {
 
 dta_posteriorLong <- bind_rows(alpha_samples_list)
 
-# Compute means for each scenario
-dta_means <- dta_posteriorLong |>
-  group_by(scenario) |>
-  summarise(mean_alpha = mean(alpha), .groups = "drop") |>
+dta_means <- dta_posteriorLong |
+  group_by(scenario) |
+  summarise(mean_alpha = mean(alpha), .groups = "drop") |
   mutate(
     label = paste0("Mean = ", round(mean_alpha, 2)),
-    y_position = 0.000004  # adjust this depending on your density height
+    y_position = 0.000004
   )
 
-# Plot
 ggplot(dta_posteriorLong, aes(x = alpha, fill = scenario)) +
   geom_density(alpha = 0.5) +
   geom_vline(data = dta_means, aes(xintercept = mean_alpha, color = scenario),
@@ -148,4 +165,5 @@ ggplot(dta_posteriorLong, aes(x = alpha, fill = scenario)) +
     x = "Estimated Total Number of Individuals in CZ",
     y = "Density"
   ) +
+  coord_cartesian(xlim = c(0, 25000), ylim = c(0, 3e-04)) +
   theme_minimal()
