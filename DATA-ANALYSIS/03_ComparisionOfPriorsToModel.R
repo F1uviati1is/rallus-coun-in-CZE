@@ -1,4 +1,4 @@
-# Script for testing different model parameter settings (UPDATED)
+# Script for testing different model prior settings (UPDATED)
 
 # SETUP ####
 library(ggplot2)
