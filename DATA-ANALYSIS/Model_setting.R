@@ -1,93 +1,150 @@
-# Script of testing different model aprameters setting
+# Script for testing different model parameter settings
 
 # SETUP ####
-
 library(ggplot2)
+library(glue)
 library(rstan)
+library(tibble)
+library(tidyr)
+library(dplyr)
 
 # DATA ####
 dta_dataForStanModel <- readRDS("DATA-ANALYSIS/data/res_dataStan.rds")
 
-mod_test <- "
-data {
-  int<lower=1> N;                   // Number of observations
-  int<lower=1> J_area;              // Number of unique areas
-  int<lower=1> T_time;              // Number of unique time points
-  int<lower=0> y[N];                // Response variable (count data)
-  int<lower=1, upper=J_area> area[N]; // Area index for each observation
-  int<lower=1, upper=T_time> time[N]; // Time index for each observation
-  vector[N] environment_diversity;  // Predictor: environmental diversity
-  vector[N] environment_quality;    // Predictor: environmental quality
-}
+# FUNCTION: Generate model code with parameterized priors ####
+fce_generateModelCode <- function(alpha_mean, alpha_sd, 
+                                  beta_div_mean, beta_div_sd,
+                                  beta_qual_sd,
+                                  phi_meanlog, phi_sdlog) {
+  glue('
+data {{
+  int<lower=1> N;
+  int<lower=1> J_area;
+  int<lower=1> T_time;
+  int<lower=0> y[N];
+  int<lower=1, upper=J_area> area[N];
+  int<lower=1, upper=T_time> time[N];
+  vector[N] environment_diversity;
+  vector[N] environment_quality;
+}}
 
-parameters {
-  real<lower=0> alpha;              // Baseline parameter (intercept)
-  real<lower=0> beta_diversity;     // Effect of environmental diversity
-  real beta_quality;                // Effect of environmental quality
-  vector[J_area] u_area;            // Random effects for areas
-  vector[T_time] u_time;            // Random effects for time points
-  real<lower=0> sigma_area;         // Standard deviation of area effects
-  real<lower=0> sigma_time;         // Standard deviation of time effects
-  real<lower=0> phi;                // Overdispersion parameter (negative binomial)
-}
+parameters {{
+  real<lower=0> alpha;
+  real<lower=0> beta_diversity;
+  real beta_quality;
+  vector[J_area] u_area;
+  vector[T_time] u_time;
+  real<lower=0> sigma_area;
+  real<lower=0> sigma_time;
+  real<lower=0> phi;
+}}
 
-model {
-  // Priors
-  alpha ~ lognormal(-5.986, 3);      // Prior for baseline (0.226 * 11060 = 2499.56)
-  beta_diversity ~ lognormal(0,2);   // Prior for diversity effect
-  beta_quality ~ normal(0, 2);       // Prior for quality effect
-  u_area ~ normal(0, sigma_area);    // Prior for area-specific variation
-  u_time ~ normal(0, sigma_time); // Prior for time-specific variation
-  sigma_area ~ normal(0, 2);         // Normal prior for area variation
-  sigma_time ~ normal(0, 2);         // Normal prior for time variation
-  phi ~ lognormal(log(1.62), 0.5);;     // Truncated normal prior for overdispersion
+model {{
+  alpha ~ lognormal({alpha_mean}, {alpha_sd});
+  beta_diversity ~ lognormal({beta_div_mean}, {beta_div_sd});
+  beta_quality ~ normal(0, {beta_qual_sd});
+  u_area ~ normal(0, sigma_area);
+  u_time ~ normal(0, sigma_time);
+  sigma_area ~ normal(0, 2);
+  sigma_time ~ normal(0, 2);
+  phi ~ lognormal({phi_meanlog}, {phi_sdlog});
 
-  // Likelihood
-  for (n in 1:N) {
-    y[n] ~ neg_binomial_2_log( // Negative binomial model with log-link
-      log(alpha) +             // Baseline count (in log space)
-      beta_diversity * environment_diversity[n] + // Effect of diversity
-      beta_quality * environment_quality[n] +     // Effect of quality
-      u_area[area[n]] +  // Random effect for area
-      u_time[time[n]],   // Random effect for time
-      phi                // Overdispersion parameter
+  for (n in 1:N) {{
+    y[n] ~ neg_binomial_2_log(
+      log(alpha) +
+      beta_diversity * environment_diversity[n] +
+      beta_quality * environment_quality[n] +
+      u_area[area[n]] +
+      u_time[time[n]],
+      phi
     );
-  }
+  }}
+}}
+')
 }
-"
 
-# MODEL
-
-mod_test <- stan_model(model_code = mod_test)
-
-set.seed(23)
-fit_modTest <- sampling(
-  mod_test,
-  data = dta_dataForStanModel,
-  iter = 2000,
-  chains = 4
+# LIST OF PRIOR SCENARIOS ####
+dta_priorScenarios <- list(
+  list(name = "default",
+       alpha_mean = -5.986,
+       alpha_sd = 3,
+       beta_div_mean = 0,
+       beta_div_sd = 2,
+       beta_qual_sd = 2,
+       phi_meanlog = log(1.62),
+       phi_sdlog = 0.5),
+  
+  list(name = "weaker_alpha",
+       alpha_mean = -3,
+       alpha_sd = 1,
+       beta_div_mean = 0,
+       beta_div_sd = 2,
+       beta_qual_sd = 2,
+       phi_meanlog = log(1.62),
+       phi_sdlog = 0.5)
 )
 
-#### VISUALIZATION ####
-# Extract alpha samples for both models (and multiply by proportional mapped area to whole CZE)
-dta_alphaSamples <- extract(fit_modTest)$alpha * 11060
+# STORAGE FOR RESULTS ####
+fin_results <- list()
 
-# Compute statistics for annotations
-tmp_meanAlpha <- mean(dta_alphaSamples)
-tmp_q1Alpha <- quantile(dta_alphaSamples, 0.25)
-tmp_q3Alpha <- quantile(dta_alphaSamples, 0.75)
+# MODELLING ####
+for (scenario in dta_priorScenarios) {
+  cat("Running:", scenario$name, "\n")
+  
+  tmp_code <- fce_generateModelCode(
+    alpha_mean = scenario$alpha_mean,
+    alpha_sd = scenario$alpha_sd,
+    beta_div_mean = scenario$beta_div_mean,
+    beta_div_sd = scenario$beta_div_sd,
+    beta_qual_sd = scenario$beta_qual_sd,
+    phi_meanlog = scenario$phi_meanlog,
+    phi_sdlog = scenario$phi_sdlog
+  )
+  
+  tmp_mod <- stan_model(model_code = tmp_code)
+  
+  set.seed(23)
+  tmp_fit <- sampling(tmp_mod, data = dta_dataForStanModel, iter = 2000, chains = 4, seed = 23)
+  
+  fin_results[[scenario$name]] <- tmp_fit
+}
 
-# Convert to data frame for ggplot
-dta_alphaSamples_df <- data.frame(alpha = dta_alphaSamples)
+# VISUALIZATION ####
+# Extract and combine alpha samples from each scenario
+alpha_samples_list <- lapply(names(fin_results), function(scenario_name) {
+  alpha_samples <- rstan::extract(fin_results[[scenario_name]])$alpha
+  tibble(
+    scenario = scenario_name,
+    alpha = alpha_samples * 11060
+  )
+})
+
+dta_posteriorLong <- bind_rows(alpha_samples_list)
+
+# Compute means for each scenario
+dta_means <- dta_posteriorLong |>
+  group_by(scenario) |>
+  summarise(mean_alpha = mean(alpha), .groups = "drop") |>
+  mutate(
+    label = paste0("Mean = ", round(mean_alpha, 2)),
+    y_position = 0.000004  # adjust this depending on your density height
+  )
 
 # Plot
-ggplot(dta_alphaSamples_df, aes(x = alpha)) +
-  geom_density(fill = "steelblue", alpha = 0.6) +
-  geom_vline(xintercept = tmp_meanAlpha, color = "red", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = tmp_q1Alpha, color = "darkgreen", linetype = "dotted", size = 1) +
-  geom_vline(xintercept = tmp_q3Alpha, color = "darkgreen", linetype = "dotted", size = 1) +
+ggplot(dta_posteriorLong, aes(x = alpha, fill = scenario)) +
+  geom_density(alpha = 0.5) +
+  geom_vline(data = dta_means, aes(xintercept = mean_alpha, color = scenario),
+             linetype = "dashed", linewidth = 1) +
+  geom_text(
+    data = dta_means,
+    aes(x = mean_alpha, y = y_position, label = label, color = scenario),
+    angle = 90,
+    hjust = -0.1,
+    size = 3.5,
+    show.legend = FALSE
+  ) +
   labs(
-    title = "Posterior Distribution of Total Individuals (α × Area)",
+    title = "Comparison of Posterior α × Area Across Priors",
     x = "Estimated Total Number of Individuals in CZ",
     y = "Density"
   ) +

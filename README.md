@@ -24,6 +24,7 @@ So far i defined folowing marks within scripts:
 * tmp = temporary or assistant data object
 * mod = model
 * fit = fit of the model
+* fce = function
 
 Feel free to define any other category.
 
