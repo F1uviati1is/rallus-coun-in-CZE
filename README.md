@@ -23,6 +23,7 @@ So far i defined folowing marks within scripts:
 * fin = final object, usualy ment to be export at the end)
 * tmp = temporary or assistant data object
 * mod = model
+* fit = fit of the model
 
 Feel free to define any other category.
 
