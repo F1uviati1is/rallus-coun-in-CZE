@@ -52,16 +52,14 @@ dta_railCounts <- dta_railCounts |>
   )
 
 dta_railCounts$zarust <- as.numeric(scale(dta_railCounts$zarust))   # Scaling explanatory variable coz it was making mess
-dta_railCounts$Termin <- as.numeric(scale(dta_railCounts$Termin))   # Scaling explanatory variable coz it was making mess
+
 
 # Stan data
 fin_dataStan <- list(
   N = nrow(dta_railCounts),
   J_area = length(unique(dta_railCounts$Oblast)),
-  T_time = length(unique(dta_railCounts$Termin)),  
   y = dta_railCounts$water_rails_count,
   area = as.numeric(factor(dta_railCounts$Oblast)),
-  time = as.numeric(factor(dta_railCounts$Termin)),
   environment_diversity = dta_railCounts$Shanon,
   environment_quality = dta_railCounts$zarust  
 )

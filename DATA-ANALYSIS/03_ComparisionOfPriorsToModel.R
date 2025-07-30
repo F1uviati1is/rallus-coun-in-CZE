@@ -7,6 +7,7 @@ library(rstan)
 library(tibble)
 library(tidyr)
 library(dplyr)
+rm(list = ls())
 
 # DATA ####
 dta_dataForStanModel <- readRDS("DATA-ANALYSIS/data/res_dataStan.rds")
@@ -140,9 +141,9 @@ alpha_samples_list <- lapply(names(fin_results), function(scenario_name) {
 
 dta_posteriorLong <- bind_rows(alpha_samples_list)
 
-dta_means <- dta_posteriorLong |
-  group_by(scenario) |
-  summarise(mean_alpha = mean(alpha), .groups = "drop") |
+dta_means <- dta_posteriorLong |>
+  group_by(scenario) |>
+  summarise(mean_alpha = mean(alpha), .groups = "drop") |>
   mutate(
     label = paste0("Mean = ", round(mean_alpha, 2)),
     y_position = 0.000004
