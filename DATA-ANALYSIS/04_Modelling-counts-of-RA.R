@@ -8,6 +8,7 @@ library(ggplot2)
 library(MASS)
 library(rstan)
 library(purrr)
+rm(list = ls())
 
 ## DATA LOAD ####
 
