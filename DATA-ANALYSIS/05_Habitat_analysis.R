@@ -12,17 +12,15 @@ for (lib in libs) {
   }
 }
 
-
-
-RA_PROSTREDI_kopie_2 <- openxlsx::read.xlsx(
-  "DATA-ANALYSIS/data/RA_PROSTREDI_kopie_2.xlsx",
+data_habitat <- openxlsx::read.xlsx(
+  "DATA-ANALYSIS/data/data_habitat.xlsx",
   sheet = 3
   )
-summary(RA_PROSTREDI_kopie_2)
+summary(data_habitat)
 
-model<-(glmmTMB(RA_Celkem~pocet+(1|Oblast),RA_PROSTREDI_kopie_2,family=nbinom1))
+model<-(glmmTMB(RA_Celkem~pocet+(1|Oblast),data_habitat,family=nbinom1))
 summary(model) #druha hypotéza - jestli je zde vliv prostředí na toho chřástala 
-plot(data = RA_PROSTREDI_kopie_2, 
+plot(data = data_habitat, 
      RA_Celkem ~ pocet, 
      pch = 16, cex = 1,
      abline (lm(RA_Celkem~pocet)), col = "blue", 
@@ -30,11 +28,11 @@ plot(data = RA_PROSTREDI_kopie_2,
      xlab = "Počet chřástalů", ylab = "počet stanovišť") #grafickéznázornění
 check_overdispersion (model)
 
-model<-(glmmTMB(RA_Celkem~ zarust+(1|Oblast),RA_PROSTREDI_kopie_2,family=nbinom1))
+model<-(glmmTMB(RA_Celkem~ zarust+(1|Oblast),data_habitat,family=nbinom1))
 summary(model) #vliv zárůstu (teoreticky vydělit 10)
 library(ggplot2)
 
-ggplot(RA_PROSTREDI_kopie_2, aes(x = pocet, y = RA_Celkem)) +
+ggplot(data_habitat, aes(x = pocet, y = RA_Celkem)) +
   geom_jitter(color = "black", size = 2) +                         # body
   geom_smooth(method = "lm", color = "blue", se = FALSE) +       # regresní přímka
   labs(
@@ -48,7 +46,7 @@ check_overdispersion (model)
 
 # Model se všemi proměnnými
 full_model <- glmmTMB(RA_Celkem ~ `rakos%` + `orobinec%` + `zblochan%` + `ostrice%` + `dreviny%` + `ostatni%` + (1 | Oblast),
-                      data = RA_PROSTREDI_kopie_2, family = nbinom1)
+                      data = data_habitat, family = nbinom1)
 r.squaredGLMM(full_model) #kolik procent variability mi ukazuj ty data
 # Shrnutí fixních efektů
 model_df <- tidy(full_model, effects = "fixed") |> 
@@ -62,7 +60,7 @@ model_df <- tidy(full_model, effects = "fixed") |>
 
 # Model bez rakosu a orobince
 reduced_model <- glmmTMB(RA_Celkem ~ `zblochan%` + `ostrice%` + `dreviny%` + `ostatni%` + (1 | Oblast),
-                         data = RA_PROSTREDI_kopie_2, family = nbinom1)
+                         data = data_habitat, family = nbinom1)
 r.squaredGLMM(reduced_model) #kolik procent variability mi ukazuj ty data
 
 #orobinec a rákos jsou pro něj nejdůležitější, ale můžou být pro něj důležité ostatní prostředí kvůli hnízdění 
