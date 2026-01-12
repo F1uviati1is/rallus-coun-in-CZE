@@ -52,16 +52,14 @@ dta_railCounts <- dta_railCounts |>
   )
 
 dta_railCounts$zarust <- as.numeric(scale(dta_railCounts$zarust))   # Scaling explanatory variable coz it was making mess
-dta_railCounts$Termin <- as.numeric(scale(dta_railCounts$Termin))   # Scaling explanatory variable coz it was making mess
+
 
 # Stan data
 fin_dataStan <- list(
   N = nrow(dta_railCounts),
   J_area = length(unique(dta_railCounts$Oblast)),
-  T_time = length(unique(dta_railCounts$Termin)),  
   y = dta_railCounts$water_rails_count,
   area = as.numeric(factor(dta_railCounts$Oblast)),
-  time = as.numeric(factor(dta_railCounts$Termin)),
   environment_diversity = dta_railCounts$Shanon,
   environment_quality = dta_railCounts$zarust  
 )
@@ -70,41 +68,40 @@ fin_dataStan <- list(
 
 # Model
 fin_model <- "data {
-  int<lower=1> N;                   // Number of observations
-  int<lower=1> J_area;              // Number of unique areas
-  int<lower=1> T_time;              // Number of unique time points
-  int<lower=0> y[N];                // Response variable (count data)
-  int<lower=1, upper=J_area> area[N]; // Area index for each observation
-  int<lower=1, upper=T_time> time[N]; // Time index for each observation
+  int<lower=1> N;                        // Number of observations
+  int<lower=1> J_area;                   // Number of unique areas
+  int<lower=0> y[N];                     // Response variable (count data)
+  int<lower=1, upper=J_area> area[N];    // Area index
+  vector[N] environment_diversity;       // Covariate: environmental diversity
+  vector[N] environment_quality;         // Covariate: environmental quality
 }
 
 parameters {
-  real<lower=0> alpha;              // Baseline parameter (intercept)
-  vector[J_area] u_area;            // Random effects for areas
-  vector[T_time] u_time;            // Random effects for time points
-  real<lower=0> sigma_area;         // Standard deviation of area effects
-  real<lower=0> sigma_time;         // Standard deviation of time effects
-  real<lower=0> phi;                // Overdispersion parameter (negative binomial)
+  real<lower=0> alpha;                   // Baseline intercept (on original scale)
+  real<lower=0> beta_diversity;          // Effect of diversity (positive constraint)
+  real beta_quality;                     // Effect of quality
+  vector[J_area] u_area;                 // Random effects for areas
+  real<lower=0> sigma_area;              // SD of area random effects
+  real<lower=0> phi;                     // Overdispersion parameter
 }
 
 model {
-  // Priors
-  alpha ~ lognormal(-1, 5);          // Prior for baseline
-  beta_diversity ~ lognormal(0,5);
-  beta_quality ~ normal(0,5);
-  u_area ~ normal(0, sigma_area);    // Prior for area-specific variation
-  u_time ~ normal(0, sigma_time);    // Prior for time-specific variation
-  sigma_area ~ normal(0, 2);         // Prior for area variation
-  sigma_time ~ normal(0, 2);         // Prior for time variation
-  phi ~ lognormal(log(1.62), 1.5);   // Prior for overdispersion
-  
+  // Flat (weakly informative) priors
+  alpha ~ lognormal(-1, 5);
+  beta_diversity ~ lognormal(0, 5);
+  beta_quality ~ normal(0, 5);
+  u_area ~ normal(0, sigma_area);
+  sigma_area ~ normal(0, 2);
+  phi ~ lognormal(log(1.62), 1.5);
+
   // Likelihood
   for (n in 1:N) {
     y[n] ~ neg_binomial_2_log(
       log(alpha) +
-        u_area[area[n]] +  // Random effect for area
-      u_time[time[n]],   // Random effect for time
-      phi                // Overdispersion parameter
+      beta_diversity * environment_diversity[n] +
+      beta_quality * environment_quality[n] +
+      u_area[area[n]],
+      phi
     );
   }
 }"

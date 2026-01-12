@@ -8,6 +8,7 @@ library(ggplot2)
 library(MASS)
 library(rstan)
 library(purrr)
+rm(list = ls())
 
 ## DATA LOAD ####
 
@@ -26,7 +27,8 @@ fit <- sampling(
   stan_model,
   data = dta_dataForStanModel,
   iter = 2000,
-  chains = 4
+  chains = 4,
+  control = list(adapt_delta = 0.95)  #Coz 
 )
 
 #### VISUALIZATION ####
@@ -53,6 +55,35 @@ ggplot(alpha_samples_df, aes(x = samples, fill = T)) +
        y = "Pravděpodobnost") +
   theme_minimal() +
   xlim(0, 20000) # Limit x-axis to 0 - 20000
+
+#### DIAGNOSTICSS ####
+
+# Table
+rstan::monitor(fit, warmup = 1000, print = TRUE)
+
+# Traceplot
+traceplot(fit, pars = c("alpha", "beta_diversity", "beta_quality", "phi", "sigma_area"))
+
+check_hmc_diagnostics(fit)
+
+post <- rstan::extract(fit)
+y_rep <- replicate(100, {
+  rnbinom(length(dta_dataForStanModel$y),
+          mu = exp(log(post$alpha[1]) + 
+                     post$beta_diversity[1] * dta_dataForStanModel$environment_diversity +
+                     post$beta_quality[1] * dta_dataForStanModel$environment_quality +
+                     post$u_area[1, dta_dataForStanModel$area]),
+          size = post$phi[1])
+})
+
+y_rep <- t(y_rep)  # Transpose to [100 draws × 885 observations]
+
+bayesplot::ppc_dens_overlay(dta_dataForStanModel$y, y_rep)
+
+posterior <- as.data.frame(fit)
+ggplot(posterior, aes(x = beta_diversity)) + geom_density(fill = "skyblue")
+ggplot(posterior, aes(x = beta_quality)) + geom_density(fill = "skyblue")
+ggplot(posterior, aes(x = phi)) + geom_density(fill = "skyblue")
 
 
 #### LOLO-CV MODEL DIAGNOSTICS #### (Leave one locality out - cross validation)
