@@ -18,12 +18,14 @@ parameters {
 
 model {
   // Priors
-  alpha ~ lognormal(-5.986, 3);      // Prior for baseline
+  alpha ~ lognormal(-1, 5);          // Prior for baseline
+  beta_diversity ~ lognormal(0,5);
+  beta_quality ~ normal(0,5);
   u_area ~ normal(0, sigma_area);    // Prior for area-specific variation
   u_time ~ normal(0, sigma_time);    // Prior for time-specific variation
   sigma_area ~ normal(0, 2);         // Prior for area variation
   sigma_time ~ normal(0, 2);         // Prior for time variation
-  phi ~ lognormal(log(1.62), 0.5);   // Prior for overdispersion
+  phi ~ lognormal(log(1.62), 1.5);   // Prior for overdispersion
   
   // Likelihood
   for (n in 1:N) {
